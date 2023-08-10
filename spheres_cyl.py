@@ -38,10 +38,11 @@ start_radians = o1_value * np.pi/180.
 end_radians = o2_value * np.pi/180.
 
 z0 = 0.0
-zdel = 1.5*sphere_R
+# zdel = 1.5*sphere_R
+zdel = sphere_R * np.sqrt(3)
 print(f"x,y,z,type,volume,cycle entry,custom:GFP,custom:sample")
 kstack = 1
-start_radians_del = 0.3
+start_radians_del = 0.2
 for zval in np.arange(z0,cyl_height,zdel):
     for theta in np.arange(start_radians, end_radians, rmod*2*delta_theta):
     # print("theta= ",theta)
