@@ -173,7 +173,18 @@ class MplWidget(QtWidgets.QWidget):
         print("xval,yval=", xval,yval)
         self.bezpts[self.num_pts] = [xval,yval]
         print("self.bezpts=",self.bezpts)
+
+        # xvals = self.bezpts[self.num_pts][0]
+        # yvals = self.bezpts[self.num_pts][1]
+        xvals = self.bezpts[:,0]
+        yvals = self.bezpts[:,1]
+        print("xvals=", xvals)
+        print("yvals=", yvals)
+
         self.num_pts += 1
+
+        # if self.num_pts > 1:
+        #     self.ax0.plot(xvals, yvals)
 
         rval = 8.0
         if self.num_pts == 4:
@@ -188,13 +199,14 @@ class MplWidget(QtWidgets.QWidget):
             print("len(xv)=",len(xv))
             # self.csv_array = np.empty([1,4])  # should probably *just* np.delete, but meh
             # self.csv_array = np.delete(self.csv_array,0,0)
-            for idx in range(len(xv)):
-                print("idx=",idx)
+            # for idx in range(len(xv)):
+            #     print("idx=",idx)
             self.num_pts = 0
 
             # self.population_plot[self.discrete_scalar].ax0.plot(xv, yv, label=ctname, linewidth=lw, color=ctcolor)
             # self.ax0.plot(xv, yv, 'o')
             self.circles(xv,yv, s=rval, c='r', edgecolor='red')
+            self.ax0.plot(xvals, yvals)
             # self.ax0.set_xlabel('time (mins)')
             # self.ax0.set_ylabel('# of cells')
             # self.ax0.set_title("cell_type", fontsize=10)
