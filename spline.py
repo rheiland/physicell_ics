@@ -9,6 +9,7 @@ from matplotlib.collections import PatchCollection
 import matplotlib.colors as mplc
 from scipy.special import comb
 
+__author__ = "Randy Heiland, Intelligent Systems Engineering, Luddy SICE, Indiana University"
 
 class MplWidget(QtWidgets.QWidget):
     def __init__(self, parent=None):
@@ -18,21 +19,25 @@ class MplWidget(QtWidgets.QWidget):
         vertical_layout = QtWidgets.QVBoxLayout(self)
         vertical_layout.addWidget(self.canvas)
 
-        self.instructions = f"`c` clear; `u` undo; `n` new type; `s` save"
-        self.cell_type_name = "epi"
+        self.instructions = f"'n' new celltype, 'u' undo, 's' save, 'c' clear"
+        self.cell_type_name = "default"
         self.cell_volume = 2494.0
         self.cell_radius = (self.cell_volume * 0.75 / np.pi) ** (1./3)
         print(f"default self.cell_radius= {self.cell_radius}")
         # self.cell_radius = 8.412710547954228   # from PhysiCell_phenotype.cpp
         self.color_by_celltype = ['gray','red','green','yellow','cyan','magenta','blue','brown','black','orange','seagreen','gold']
+        self.cell_type_color = 'gray'
 
         self.canvas.axes = self.canvas.figure.add_subplot(111)
         self.ax0 = self.canvas.axes
         self.ax0.set_title(self.instructions, fontsize=10)
+        self.ax0.grid(True)
 
         self.num_pts = 0
         self.bezpts = np.zeros((4,2))
         self.bez_plot = []
+        self.bplot_name = []
+        self.bplot_color = ['gray']
         print("self.bezpts=",self.bezpts)
         self.num_eval = 10
 
@@ -55,33 +60,54 @@ class MplWidget(QtWidgets.QWidget):
     def keyPressEvent(self, event):
         # if event.key() == Qt.Key_Space:
             # self.test_method()
-        if event.key() == Qt.Key_C:
-            self.ax0.cla()
-            self.ax0.set_aspect(1.0)
-            self.ax0.set_xlim(self.plot_xmin, self.plot_xmax)
-            self.ax0.set_ylim(self.plot_ymin, self.plot_ymax)
-            self.ax0.set_title(self.instructions, fontsize=10)
-            self.canvas.update()
-            self.canvas.draw()
+
+        if event.key() == Qt.Key_N:
+            # print("----- New cell type ...")
+            self.cell_type_name = input("\nEnter cell type name:    (disregard this--> ")
+            print("-- new cell type name is ", self.cell_type_name)
+            # self.bplot_name.append(self.cell_type_name)
+            # self.bplot_name[-1] = self.cell_type_name
+
+            print()
+            volume = input("Enter cell type volume:     (disregard this--> ")
+            try:
+                self.cell_volume = float(volume)
+            except:
+                print("ERROR converting to float. Setting to default volume.")
+                self.cell_volume = 2494.0
+            self.cell_radius = (self.cell_volume * 0.75 / np.pi) ** (1./3)
+            print(f"-- its volume is {self.cell_volume} (--> r={self.cell_radius})")
+
+            print()
+            # self.color_by_celltype = ['gray','red','green','yellow','cyan','magenta','blue','brown','black','orange','seagreen','gold']
+            print(f"color suggestions: {self.color_by_celltype}")
+            self.cell_type_color = input("Enter color (no quotes):     (disregard this--> ")
+            # self.bplot_color.append(self.cell_type_color)
+            self.bplot_color[-1] = self.cell_type_color
+
+            print("\n Got it! Now return to the plot to create more cells on curved boundaries.")
+
         elif event.key() == Qt.Key_U:
             # print("----- Undo is TBD...")
             print("# plots= ",len(self.bez_plot))
-            print(type(self.bez_plot))
+            # print(type(self.bez_plot))
             print(self.bez_plot)
             # self.bez_plot = self.bez_plot.pop()
-            self.bez_plot.pop()
+            try:
+                self.bez_plot.pop()
+                self.bplot_name.pop()
+                self.bplot_color.pop()
+            except:
+                return
+            # self.bplot_color.pop()
             # self.bez_plot.del[-1]
             print("# plots= ",len(self.bez_plot))
+            if len(self.bez_plot) == 0:
+                self.cell_type_name = "default"
+                self.bplot_color.append('gray')
             self.update_plots()
-        elif event.key() == Qt.Key_N:
-            # print("----- New cell type ...")
-            self.cell_type_name = input("Enter cell type name:    (disregard this--> ")
-            print("-- new cell type name is ", self.cell_type_name)
-            volume = input("Enter cell type volume:     (disregard this--> ")
-            self.cell_volume = float(volume)
-            self.cell_radius = (self.cell_volume * 0.75 / np.pi) ** (1./3)
-            print(f"-- its volume is {self.cell_volume} (and r={self.cell_radius}")
-        elif event.key() == Qt.Key_S:
+
+        elif event.key() == Qt.Key_S:   # save to .csv file
             fname = "curvy.csv"
             print(f"----- Writing to {fname}...")
             with open(fname, 'w') as f:
@@ -90,9 +116,29 @@ class MplWidget(QtWidgets.QWidget):
                     xvals = self.bez_plot[idx][:,0]
                     yvals = self.bez_plot[idx][:,1]
                     for jdx in range(len(xvals)):
-                        f.write(f"{xvals[jdx]},{yvals[jdx]},0,{self.cell_type_name}\n")
+                        # f.write(f"{xvals[jdx]},{yvals[jdx]},0,{self.cell_type_name}\n")
+                        f.write(f"{xvals[jdx]},{yvals[jdx]},0,{self.bplot_name[idx]}\n")
+                        print(f"{xvals[jdx]},{yvals[jdx]},0,{self.bplot_name[idx]}")
+
+        elif event.key() == Qt.Key_C:
+            self.bez_plot.clear()
+            self.bplot_name.clear()
+            self.bplot_color = ['gray']
+            self.cell_type_name = "default"
+            self.cell_volume = 2494.0
+            self.cell_radius = (self.cell_volume * 0.75 / np.pi) ** (1./3)
+
+            self.ax0.cla()
+            self.ax0.set_aspect(1.0)
+            self.ax0.set_xlim(self.plot_xmin, self.plot_xmax)
+            self.ax0.set_ylim(self.plot_ymin, self.plot_ymax)
+            self.ax0.set_title(self.instructions, fontsize=10)
+            self.ax0.grid(True)
+            self.canvas.update()
+            self.canvas.draw()
 
     #---------------------------------------------------------------------------
+    # def circles(self, x, y, s, c='b', ec='b',vmin=None, vmax=None, **kwargs):
     def circles(self, x, y, s, c='b', vmin=None, vmax=None, **kwargs):
         """
         See https://gist.github.com/syrte/592a062c562cd2a98a83 
@@ -194,11 +240,20 @@ class MplWidget(QtWidgets.QWidget):
             xvals, yvals= self.bezier_curve(self.bez_plot[idx],40)  # eval Bezier
 
             # self.circles(self.xv,self.yv, s=rval, c='r', edgecolor='red')
-            self.circles(xvals,yvals, s=rval, c='r', edgecolor='red')
+            # self.circles(xvals,yvals, s=rval, c='r', edgecolor='red')
+            # self.circles(xvals,yvals, s=rval, c=self.cell_type_color)
+            # print("\n>>>>>>>>>>>>  bplot_color=",self.bplot_color)
+            try:
+                # self.circles(xvals,yvals, s=rval, c=self.bplot_color[idx], edgecolor='k')  # why doesn't edgecolor work?!
+                self.circles(xvals,yvals, s=rval, c=self.bplot_color[idx])
+            except:
+                print("\n>>>>>>>>>>>>  bplot_color=",self.bplot_color)
+                print("ERROR plotting circles(). Maybe invalid color name? Try to 'undo' last plot and continue.")
+                return
 
             # self.xv2, self.yv2= self.cell_spacing(self.xv,self.yv)  # eval Bezier
 
-            self.ax0.plot(xvals, yvals)   # plot 4-pt control polygon
+            # self.ax0.plot(xvals, yvals)   # plot 4-pt control polygon
 
         # self.ax0.set_xlabel('time (mins)')
         # self.ax0.set_ylabel('# of cells')
@@ -210,22 +265,20 @@ class MplWidget(QtWidgets.QWidget):
         self.ax0.set_ylim(self.plot_ymin, self.plot_ymax)
         # self.ax0.legend(loc='center right', prop={'size': 8})
         self.canvas.update()
+        self.ax0.grid(True)
         self.canvas.draw()
         return
 
     #-----------------------------------------
-    def bernstein_poly(self, i, n, t):
-        """
-        The Bernstein polynomial of n, i as a function of t
-        """
-
+    def eval_bernstein(self, i, n, t):
+        # Bernstein polynomial of n, i as a function of t
         return comb(n, i) * ( t**(n-i) ) * (1 - t)**i
 
 
     def bezier_curve(self, points, nTimes=10):
         """
         Given a set of control points, return the
-        bezier curve defined by the control points.
+        Bezier curve defined by its control points.
 
         points should be a list of lists, or list of tuples
         such as [ [1,1], 
@@ -242,7 +295,7 @@ class MplWidget(QtWidgets.QWidget):
 
         t = np.linspace(0.0, 1.0, nTimes)
 
-        polynomial_array = np.array([ self.bernstein_poly(i, nPoints-1, t) for i in range(0, nPoints)   ])
+        polynomial_array = np.array([ self.eval_bernstein(i, nPoints-1, t) for i in range(0, nPoints)   ])
 
         xvals = np.dot(xPoints, polynomial_array)
         yvals = np.dot(yPoints, polynomial_array)
@@ -290,6 +343,9 @@ class MplWidget(QtWidgets.QWidget):
             print(f"        len(self.bez_plot)={len(self.bez_plot)}")
             print(f"        self.bez_plot={self.bez_plot}")
 
+            self.bplot_name.append(self.cell_type_name)
+            print("-------- self.bplot_name=",self.bplot_name)
+
             # print("xv=",xv)
             # print("yv=",yv)
             # print("len(xv)=",len(self.xv))
@@ -317,6 +373,9 @@ class MplWidget(QtWidgets.QWidget):
 
             # self.update_plots(xvals,yvals)
             self.update_plots()
+
+            self.bplot_color.append(self.cell_type_color)
+            # self.bplot_name.append(self.cell_type_name)
             return
 
         # self.circles(xvals,yvals, s=rvals, color=self.color_by_celltype[cell_type_index], alpha=self.alpha_value)
@@ -326,6 +385,7 @@ class MplWidget(QtWidgets.QWidget):
 
         self.ax0.set_xlim(self.plot_xmin, self.plot_xmax)
         self.ax0.set_ylim(self.plot_ymin, self.plot_ymax)
+        self.ax0.grid(True)
 
         self.canvas.update()
         self.canvas.draw()
