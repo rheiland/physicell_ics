@@ -39,7 +39,7 @@ class MplWidget(QtWidgets.QWidget):
         self.bplot_name = []
         self.bplot_color = ['gray']
         print("self.bezpts=",self.bezpts)
-        self.num_eval = 10
+        self.num_eval = 100  # for Bezier curve
 
         self.plot_xmin = -500
         self.plot_xmax = 500
@@ -113,12 +113,11 @@ class MplWidget(QtWidgets.QWidget):
             with open(fname, 'w') as f:
                 f.write('x,y,z,type,volume,cycle entry,custom:GFP,custom:sample\n')
                 for idx in range(len(self.bez_plot)):
-                    xvals = self.bez_plot[idx][:,0]
-                    yvals = self.bez_plot[idx][:,1]
+                    xvals, yvals= self.bezier_curve2(self.bez_plot[idx],200)  # eval Bezier
                     for jdx in range(len(xvals)):
                         # f.write(f"{xvals[jdx]},{yvals[jdx]},0,{self.cell_type_name}\n")
                         f.write(f"{xvals[jdx]},{yvals[jdx]},0,{self.bplot_name[idx]}\n")
-                        print(f"{xvals[jdx]},{yvals[jdx]},0,{self.bplot_name[idx]}")
+                        # print(f"{xvals[jdx]},{yvals[jdx]},0,{self.bplot_name[idx]}")
 
         elif event.key() == Qt.Key_C:
             self.bez_plot.clear()
@@ -216,7 +215,6 @@ class MplWidget(QtWidgets.QWidget):
         # return collection
 
     #-----------------------------------------
-    # def update_plots(self,xvals,yvals):
     def update_plots(self):
         print("----------------  update_plots -----------------")
         self.ax0.cla()
@@ -231,13 +229,14 @@ class MplWidget(QtWidgets.QWidget):
         for idx in range(len(self.bez_plot)):
             xvals = self.bez_plot[idx][:,0]
             yvals = self.bez_plot[idx][:,1]
-            print("xvals=", xvals)
-            print("yvals=", yvals)
+            # print("xvals=", xvals)
+            # print("yvals=", yvals)
             self.ax0.plot(xvals, yvals)   # plot 4-pt control polygon
 
-            # self.xv, self.yv= self.bezier_curve(self.bezpts,40)  # eval Bezier
-            # self.xv, self.yv= self.bezier_curve(self.bez_plot[idx],40)  # eval Bezier
-            xvals, yvals= self.bezier_curve(self.bez_plot[idx],40)  # eval Bezier
+            # xvals, yvals= self.bezier_curve(self.bez_plot[idx],100)  # eval Bezier
+            # xvals, yvals= self.bezier_curve2(self.bez_plot[idx],20)  # eval Bezier
+            xvals, yvals= self.bezier_curve2(self.bez_plot[idx],200)  # eval Bezier
+            print("========   len(xvals) from bezier_curve2:  ",len(xvals))
 
             # self.circles(self.xv,self.yv, s=rval, c='r', edgecolor='red')
             # self.circles(xvals,yvals, s=rval, c='r', edgecolor='red')
@@ -275,7 +274,7 @@ class MplWidget(QtWidgets.QWidget):
         return comb(n, i) * ( t**(n-i) ) * (1 - t)**i
 
 
-    def bezier_curve(self, points, nTimes=10):
+    def bezier_curve(self, points, num_tsteps=99):
         """
         Given a set of control points, return the
         Bezier curve defined by its control points.
@@ -284,7 +283,7 @@ class MplWidget(QtWidgets.QWidget):
         such as [ [1,1], 
                     [2,3], 
                     [4,5], ..[Xn, Yn] ]
-            nTimes is the number of time steps, defaults to 1000
+            num_tsteps is the number of time steps
 
             See http://processingjs.nihongoresources.com/bezierinfo/
         """
@@ -293,7 +292,7 @@ class MplWidget(QtWidgets.QWidget):
         xPoints = np.array([p[0] for p in points])
         yPoints = np.array([p[1] for p in points])
 
-        t = np.linspace(0.0, 1.0, nTimes)
+        t = np.linspace(0.0, 1.0, num_tsteps)
 
         polynomial_array = np.array([ self.eval_bernstein(i, nPoints-1, t) for i in range(0, nPoints)   ])
 
@@ -301,6 +300,59 @@ class MplWidget(QtWidgets.QWidget):
         yvals = np.dot(yPoints, polynomial_array)
 
         return xvals, yvals
+
+    #--------------------------------------------------------
+    def bezier_curve2(self, points, num_tsteps=99):
+        """
+        Given a set of control points, return the
+        Bezier curve defined by its control points.
+
+        points should be a list of lists, or list of tuples
+        such as [ [1,1], 
+                    [2,3], 
+                    [4,5], ..[Xn, Yn] ]
+            num_tsteps is the number of time steps
+
+            Rf. http://processingjs.nihongoresources.com/bezierinfo/
+        """
+
+        nPoints = len(points)
+        xPoints = np.array([p[0] for p in points])
+        yPoints = np.array([p[1] for p in points])
+
+        t = np.linspace(0.0, 1.0, num_tsteps)
+
+        polynomial_array = np.array([ self.eval_bernstein(i, nPoints-1, t) for i in range(0, nPoints)   ])
+
+        xvals = np.dot(xPoints, polynomial_array)
+        yvals = np.dot(yPoints, polynomial_array)
+
+        # print(f"bezier_curve2():   type(xvals)={type(xvals)}, len(xvals)={len(xvals)}")
+        # print("xvals=",xvals)
+
+        i0 = 0
+        rx2 = 2.0 * self.cell_radius  # desired distance between cells
+        dist2_min = rx2 * rx2  # square of distance 
+        # print(f"\n\n >>>>>>  r={self.cell_radius},  rx2={rx2}, dist2_min={dist2_min}")
+        xnew = np.array([])
+        ynew = np.array([])
+        # print("empty xnew=",xnew)
+        xnew = np.append(xnew, xvals[0])
+        ynew = np.append(ynew, yvals[0])
+        # print("0) append: xnew=",xnew)
+
+        # We step through ALL pts on the Bezier curve and only return those who are ~2*cell_radius apart
+        for idx in range(1,len(xvals)-1):
+            xdiff = xvals[idx] - xvals[i0]
+            ydiff = yvals[idx] - yvals[i0]
+            d2 = xdiff*xdiff + ydiff*ydiff  # square of distance
+            if d2 > dist2_min:
+                xnew = np.append(xnew, xvals[idx])
+                ynew = np.append(ynew, yvals[idx])
+                # print("after append: xnew=",xnew)
+                i0 = idx
+
+        return xnew, ynew
 
     #---------------------------------------------------------------------------
     def cell_spacing(self, xv,yv):  # eval Bezier
@@ -313,16 +365,16 @@ class MplWidget(QtWidgets.QWidget):
         yval = event.ydata
         if xval is None:
             return
-        print("xval,yval=", xval,yval)
+        # print("xval,yval=", xval,yval)
         self.bezpts[self.num_pts] = [xval,yval]
-        print("self.bezpts=",self.bezpts)
+        # print("self.bezpts=",self.bezpts)
 
         # xvals = self.bezpts[self.num_pts][0]
         # yvals = self.bezpts[self.num_pts][1]
         xvals = self.bezpts[:,0]
         yvals = self.bezpts[:,1]
-        print("xvals=", xvals)
-        print("yvals=", yvals)
+        # print("xvals=", xvals)
+        # print("yvals=", yvals)
 
         self.num_pts += 1
 
@@ -334,17 +386,14 @@ class MplWidget(QtWidgets.QWidget):
             rval = 12.0
             self.circles(xval,yval, s=rval, c='r', edgecolor='red')
             print("------- plot Bezier!")
-            # xv, yv= bezier_curve(bezpts, nTimes=num_eval)  # eval Bezier
-            # xv, yv= self.bezier_curve(self.bezpts, nTimes=self.num_eval)  # eval Bezier
-            # self.xv, self.yv= self.bezier_curve(self.bezpts,40)  # eval Bezier
 
             self.bez_plot.append(self.bezpts.copy())
-            print(f"        type(self.bez_plot)={type(self.bez_plot)}")
-            print(f"        len(self.bez_plot)={len(self.bez_plot)}")
-            print(f"        self.bez_plot={self.bez_plot}")
+            # print(f"        type(self.bez_plot)={type(self.bez_plot)}")
+            # print(f"        len(self.bez_plot)={len(self.bez_plot)}")
+            # print(f"        self.bez_plot={self.bez_plot}")
 
             self.bplot_name.append(self.cell_type_name)
-            print("-------- self.bplot_name=",self.bplot_name)
+            # print("-------- self.bplot_name=",self.bplot_name)
 
             # print("xv=",xv)
             # print("yv=",yv)
